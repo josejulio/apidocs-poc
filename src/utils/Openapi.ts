@@ -20,7 +20,7 @@ type DeRefResponse<T> = {
 
 export const deRef = <T extends Referenceable>(refOrObject: OpenAPIV3.ReferenceObject | T, base: OpenAPIV3.Document): DeRefResponse<T> => {
     if ('$ref' in refOrObject) {
-        // Theorically a callable object could also have '$ref', but it's expecting urls.
+        // Theoretically a callable object could also have '$ref', but it's expecting urls.
         return deRefTransverse(refOrObject.$ref as string, base);
     }
 

@@ -56,7 +56,7 @@ export const Operation: React.FunctionComponent<OperationProps> = ({verb, path, 
                         return <tr>
                             <td>{code}</td>
                             <td>{dResponse.description}</td>
-                            <td>{dResponse.deRefData?.name ?? 'None'}</td>
+                            <td>{getResponseSchema(dResponse, document)}</td>
                         </tr>;
                     })}
                 </tbody>
@@ -64,6 +64,16 @@ export const Operation: React.FunctionComponent<OperationProps> = ({verb, path, 
         </>}
 
     </>;
+}
+
+const getResponseSchema = (response: OpenAPIV3.ResponseObject, document: OpenAPIV3.Document) => {
+    const contents = response.content ? Object.values(response.content).filter(c => c.schema !== undefined) : [];
+    if (contents.length === 0) {
+        return 'None';
+    }
+
+    // Previously filtered for undefined schemas
+    return deRef(contents[0].schema!, document).deRefData?.name;
 }
 
 const getType = (schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject | undefined, document: OpenAPIV3.Document) => {

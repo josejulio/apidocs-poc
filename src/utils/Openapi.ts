@@ -2,6 +2,7 @@
  * Set of OpenAPI tools to work with the OpenAPI
  */
 import { OpenAPIV3 } from "openapi-types";
+import { mock } from 'mock-json-schema';
 
 type Referenceable = OpenAPIV3.SchemaObject | OpenAPIV3.ResponseObject | OpenAPIV3.ParameterObject
     | OpenAPIV3.ExampleObject | OpenAPIV3.RequestBodyObject | OpenAPIV3.HeaderObject
@@ -61,4 +62,50 @@ const deRefTransverse = <T extends Referenceable>(reference: string, base: OpenA
         },
         ...current as T
     };
+}
+
+// Todo: This probably needs more work
+export const recursiveDeRef = <T extends Referenceable>(refOrObject: OpenAPIV3.ReferenceObject | T, base: OpenAPIV3.Document): DeRefResponse<T> => {
+    const deRefObj = deRef(refOrObject, base);
+
+    const recursiveDeRefArrayMap = (element: unknown): unknown => {
+        if (!element) {
+            return element;
+        }
+
+        if (Array.isArray(element)) {
+            return element.map(recursiveDeRefArrayMap);
+        } else if (typeof element === 'object') {
+            return recursiveDeRef(element, base);
+        }
+
+        return element;
+    }
+
+    for (const [prop, value] of Object.entries(deRefObj)) {
+        if (Array.isArray(value)) {
+            (deRefObj as any)[prop] = value.map(recursiveDeRefArrayMap);
+        } else if (typeof value === 'object') {
+            // Todo: Minor typesafety - there must be a way to patch the Referenceable to convert all ReferenceObject to accept a DeRefResponse
+            (deRefObj as any)[prop] = recursiveDeRef(value, base);
+        }
+    }
+
+    return deRefObj;
+}
+
+export const buildExample = (responses: OpenAPIV3.ResponsesObject, document: OpenAPIV3.Document): unknown | undefined => {
+    // Start with the obvious case - we can build multiple examples with a way to select each particular response
+    const trivialResponses = responses['200'] ?? responses['201'];
+    if (trivialResponses) {
+        const deRefResponse = deRef(trivialResponses, document);
+        // again - the obvious case
+        if (deRefResponse.content && deRefResponse.content['application/json']?.schema) {
+            // We need to deRef everything recursive to make the mock work
+            const jsonSchema = recursiveDeRef(deRefResponse.content['application/json'].schema, document);
+            return mock(jsonSchema);
+        }
+    }
+
+    return undefined;
 }

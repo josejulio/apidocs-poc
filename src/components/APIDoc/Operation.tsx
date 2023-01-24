@@ -13,11 +13,13 @@ export interface OperationProps {
 }
 export const Operation: React.FunctionComponent<OperationProps> = ({verb, path, operation, document}) => {
     const parameters = (operation.parameters || []).map(p => deRef(p, document));
-    const responseMap = Object.entries(operation.responses);
+    const responseMap = Object.entries(operation.responses ?? {});
     const responseExample = React.useMemo(() => {
-        const example = buildExample(operation.responses, document);
-        if (example) {
-            return JSON.stringify(example, undefined, 2);
+        if (operation.responses) {
+            const example = buildExample(operation.responses, document);
+            if (example) {
+                return JSON.stringify(example, undefined, 2);
+            }
         }
 
         return undefined;

@@ -66,7 +66,39 @@ const deRefTransverse = <T extends Referenceable>(reference: string, base: OpenA
 
 // Todo: This probably needs more work
 export const recursiveDeRef = <T extends Referenceable>(refOrObject: OpenAPIV3.ReferenceObject | T, base: OpenAPIV3.Document): DeRefResponse<T> => {
-    const deRefObj = deRef(refOrObject, base);
+    return recursiveDeRefInternal(refOrObject, {
+        document: base,
+        entities: {},
+        maxDepth: 5
+    }, 0) as DeRefResponse<T>;
+}
+
+interface RecursiveDeRefContext {
+    document: OpenAPIV3.Document;
+    entities: Record<string, object>;
+    maxDepth: number
+}
+
+const recursiveDeRefInternal = (refOrObject: object, context: RecursiveDeRefContext, depth: number): object => {
+    if (depth > context.maxDepth) {
+        return refOrObject;
+    }
+
+    let deRefObj: object;
+    if (isAReference(refOrObject)) {
+        // Prevents infinite recursion, as ref "a" could be part of "b" and "b" contain "a"
+        // Think of Node of a Tree on which each node has a ref to the tree itself
+        if (context.entities[refOrObject.$ref]) {
+            return context.entities[refOrObject.$ref];
+        } else {
+            deRefObj = deRef(refOrObject, context.document);
+            context.entities[(deRefObj as DeRefResponse<unknown>).deRefData?.path!] = deRefObj;
+        }
+    } else {
+        deRefObj = {
+            ...refOrObject
+        };
+    }
 
     const recursiveDeRefArrayMap = (element: unknown): unknown => {
         if (!element) {
@@ -76,7 +108,7 @@ export const recursiveDeRef = <T extends Referenceable>(refOrObject: OpenAPIV3.R
         if (Array.isArray(element)) {
             return element.map(recursiveDeRefArrayMap);
         } else if (typeof element === 'object') {
-            return recursiveDeRef(element, base);
+            return recursiveDeRefInternal(element, context, depth + 1);
         }
 
         return element;
@@ -87,7 +119,7 @@ export const recursiveDeRef = <T extends Referenceable>(refOrObject: OpenAPIV3.R
             (deRefObj as any)[prop] = value.map(recursiveDeRefArrayMap);
         } else if (typeof value === 'object') {
             // Todo: Minor typesafety - there must be a way to patch the Referenceable to convert all ReferenceObject to accept a DeRefResponse
-            (deRefObj as any)[prop] = recursiveDeRef(value, base);
+            (deRefObj as any)[prop] = recursiveDeRefInternal(value, context, depth + 1);
         }
     }
 

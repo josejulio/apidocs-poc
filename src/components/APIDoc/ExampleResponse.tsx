@@ -9,7 +9,7 @@ export interface ExampleResponseProps {
 export const ExampleResponse: React.FunctionComponent<ExampleResponseProps> = ({response}) => {
     const codeByLines = response.split('\n');
     const first5Lines = codeByLines.slice(0, 5).join('\n');
-    const remaining = codeByLines.slice(5, codeByLines.length - 1).join('\n');
+    const remaining = codeByLines.slice(5, codeByLines.length).join('\n');
     const id = `example-response-${stringHash(response)}`;
 
     const [isExpanded, setExpanded] = React.useState(false);

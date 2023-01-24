@@ -14,14 +14,20 @@ type StringMap = {
 type DeRefResponse<T> = {
     deRefData?: {
         name: string;
-        path: Array<string>;
+        path: string;
     }
 } & T;
 
+const isAReference = <T extends Referenceable>(refOrObject: OpenAPIV3.ReferenceObject | T): refOrObject is OpenAPIV3.ReferenceObject => {
+    // Editor might complain because of:
+    // Redundant 'typeof' check: '$ref' always has type 'string'
+    // This is wrong, as CallbackObject might also have $ref as a PathItemObject
+    return '$ref' in refOrObject && typeof refOrObject.$ref === 'string';
+}
+
 export const deRef = <T extends Referenceable>(refOrObject: OpenAPIV3.ReferenceObject | T, base: OpenAPIV3.Document): DeRefResponse<T> => {
-    if ('$ref' in refOrObject) {
-        // Theoretically a callable object could also have '$ref', but it's expecting urls.
-        return deRefTransverse(refOrObject.$ref as string, base);
+    if (isAReference(refOrObject)) {
+        return deRefTransverse(refOrObject.$ref, base);
     }
 
     return refOrObject;
@@ -31,13 +37,16 @@ const deRefTransverse = <T extends Referenceable>(reference: string, base: OpenA
     let current: object = {};
 
     const path = reference.split('/');
-    for (const step of path) {
-        // Assume we don't refer documents outside - i.e. it starts with '#'
-        if (step === '#') {
-            current = base;
-            continue;
-        }
 
+    const startAt = path.shift();
+    if (startAt === '#') {
+        // Assume we don't refer documents outside - i.e. it starts with '#'
+        current = base;
+    } else {
+        throw new Error(`External reference found: ${reference}`);
+    }
+
+    for (const step of path) {
         if (step in current) {
             current = (current as StringMap)[step];
         } else {
@@ -48,7 +57,7 @@ const deRefTransverse = <T extends Referenceable>(reference: string, base: OpenA
     return {
         deRefData: {
             name: path.at(-1)!,
-            path: path
+            path: reference
         },
         ...current as T
     };

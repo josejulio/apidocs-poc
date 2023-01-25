@@ -39,8 +39,8 @@ export const ApiDoc: React.FunctionComponent<ApiDocProps> = props => {
                 // Looks like openapi v3.1 supports components here as well
                 pathObject as Record<OpenAPIV3.HttpMethods, OpenAPIV3.OperationObject>
             ).map(([verb, operation]) =>
-                <StackItem>
-                    <Operation key={`${verb} ${path}`} verb={ verb } path={ path } operation={ operation } document={ openapi }/>
+                <StackItem key={`${verb} ${path}`}>
+                    <Operation verb={ verb } path={ path } operation={ operation } document={ openapi }/>
                 </StackItem>
             );
         })}

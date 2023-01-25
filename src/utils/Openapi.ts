@@ -23,7 +23,7 @@ const isAReference = <T extends Referenceable>(refOrObject: OpenAPIV3.ReferenceO
     // Editor might complain because of:
     // Redundant 'typeof' check: '$ref' always has type 'string'
     // This is wrong, as CallbackObject might also have $ref as a PathItemObject
-    return '$ref' in refOrObject && typeof refOrObject.$ref === 'string';
+    return refOrObject && '$ref' in refOrObject && typeof refOrObject.$ref === 'string';
 }
 
 export const deRef = <T extends Referenceable>(refOrObject: OpenAPIV3.ReferenceObject | T, base: OpenAPIV3.Document): DeRefResponse<T> => {
@@ -68,28 +68,26 @@ const deRefTransverse = <T extends Referenceable>(reference: string, base: OpenA
 export const recursiveDeRef = <T extends Referenceable>(refOrObject: OpenAPIV3.ReferenceObject | T, base: OpenAPIV3.Document): DeRefResponse<T> => {
     return recursiveDeRefInternal(refOrObject, {
         document: base,
-        entities: {},
-        maxDepth: 5
-    }, 0) as DeRefResponse<T>;
+        entities: {}
+    }) as DeRefResponse<T>;
 }
 
 interface RecursiveDeRefContext {
     document: OpenAPIV3.Document;
     entities: Record<string, object>;
-    maxDepth: number
 }
 
-const recursiveDeRefInternal = (refOrObject: object, context: RecursiveDeRefContext, depth: number): object => {
-    if (depth > context.maxDepth) {
-        return refOrObject;
-    }
-
+/*
+Prevents infinite recursion, as ref "a" could be part of "b" and "b" contain "a"
+Think of Node of a Tree on which each node has a ref to the tree itself
+lib to create the example does not handle recursion - we need to keep track of recursive ref
+A simpler approach is to have a context per path and when found ignore the content
+ */
+const recursiveDeRefInternal = (refOrObject: object, context: RecursiveDeRefContext): object => {
     let deRefObj: object;
     if (isAReference(refOrObject)) {
-        // Prevents infinite recursion, as ref "a" could be part of "b" and "b" contain "a"
-        // Think of Node of a Tree on which each node has a ref to the tree itself
         if (context.entities[refOrObject.$ref]) {
-            return context.entities[refOrObject.$ref];
+            return {};
         } else {
             deRefObj = deRef(refOrObject, context.document);
             context.entities[(deRefObj as DeRefResponse<unknown>).deRefData?.path!] = deRefObj;
@@ -108,7 +106,10 @@ const recursiveDeRefInternal = (refOrObject: object, context: RecursiveDeRefCont
         if (Array.isArray(element)) {
             return element.map(recursiveDeRefArrayMap);
         } else if (typeof element === 'object') {
-            return recursiveDeRefInternal(element, context, depth + 1);
+            return recursiveDeRefInternal(element, {
+                ...context,
+                entities: {...context.entities}
+            });
         }
 
         return element;
@@ -119,7 +120,10 @@ const recursiveDeRefInternal = (refOrObject: object, context: RecursiveDeRefCont
             (deRefObj as any)[prop] = value.map(recursiveDeRefArrayMap);
         } else if (typeof value === 'object') {
             // Todo: Minor typesafety - there must be a way to patch the Referenceable to convert all ReferenceObject to accept a DeRefResponse
-            (deRefObj as any)[prop] = recursiveDeRefInternal(value, context, depth + 1);
+            (deRefObj as any)[prop] = recursiveDeRefInternal(value, {
+                ...context,
+                entities: {...context.entities}
+            });
         }
     }
 

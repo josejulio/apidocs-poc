@@ -27,7 +27,7 @@ import InsightsApi from './resources/api/insights/openapi.json';
 import {OpenAPIV3} from "openapi-types";
 import '@patternfly/patternfly/patternfly.css';
 import '@patternfly/patternfly/patternfly-addons.css';
-import {Nav, NavItem, NavList, Page, PageSection, PageSidebar} from "@patternfly/react-core";
+import {Nav, NavItem, NavList, Page, PageSection, PageSectionVariants, PageSidebar} from "@patternfly/react-core";
 
 type NavigationAPI = {
     displayName: string;
@@ -145,7 +145,7 @@ const App = () => {
     } isNavOpen/>;
 
     return <Page sidebar={Sidebar}>
-        <PageSection>
+        <PageSection variant={PageSectionVariants.light}>
             <ApiDoc openapi={selectedApi} />
         </PageSection>
     </Page>;
